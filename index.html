@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard Ejecutivo - Auditoría de Gestión (Agroflor S.A.)</title>
+
+  <!-- CDN: Chart.js y FontAwesome -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa5b1; --accent:#16a34a; --accent2:#f97316; --danger:#ef4444;
+      --glass: rgba(255,255,255,0.04);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%; margin:0; background: linear-gradient(180deg,#071028 0%, #0b1220 100%); color:#e6eef6;}
+    .container{max-width:1200px; margin:24px auto; padding:18px;}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    header h1{font-size:20px;margin:0}
+    header p{color:var(--muted); margin:0; font-size:13px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:14px; box-shadow: 0 6px 20px rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.03);}
+    .card h3{margin:0 0 8px 0; font-size:14px}
+    .kpi{display:flex; gap:12px; align-items:center}
+    .kpi .value{font-size:20px; font-weight:700}
+    .kpi .sub{color:var(--muted); font-size:12px}
+    .card.small{padding:10px}
+    .controls{display:flex; gap:8px; align-items:center}
+    select,input[type="text"]{background:var(--card); color:#e6eef6; border:1px solid rgba(255,255,255,0.03); padding:8px 10px; border-radius:8px}
+    table{width:100%; border-collapse:collapse; font-size:13px}
+    th,td{padding:8px 6px; text-align:left; border-bottom:1px dashed rgba(255,255,255,0.03)}
+    th{color:var(--muted);font-size:12px}
+    tr:hover td{background:rgba(255,255,255,0.008)}
+    .badge{padding:6px 8px;border-radius:8px;font-weight:600;font-size:12px}
+    .badge.red{background:rgba(239,68,68,0.12); color:var(--danger)}
+    .badge.orange{background:rgba(249,115,22,0.08); color:var(--accent2)}
+    .badge.green{background:rgba(16,163,74,0.08); color:var(--accent)}
+    .gantt{display:flex; flex-direction:column; gap:8px}
+    .gantt-row{display:flex; gap:8px; align-items:center}
+    .gantt-row .label{width:200px; color:var(--muted); font-size:13px}
+    .bar{height:12px; border-radius:8px}
+    footer{color:var(--muted); font-size:12px; margin-top:12px; text-align:center}
+    .flex{display:flex;gap:12px;align-items:center}
+    @media (max-width:920px){
+      .grid{grid-template-columns:repeat(6,1fr)}
+      .card.wide{grid-column:span 6}
+      .card.half{grid-column:span 3}
+    }
+    @media (min-width:921px){
+      .card.wide{grid-column:span 8}
+      .card.side{grid-column:span 4}
+      .card.full{grid-column:span 12}
+      .card.half{grid-column:span 6}
+    }
+    /* Small helpers */
+    .muted{color:var(--muted); font-size:13px}
+    .clickable{cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1><i class="fa-solid fa-seedling"></i> Dashboard Ejecutivo - Auditoría de Gestión (Agroflor S.A.)</h1>
+        <p>Memorando de Planificación • Alineado con ISO 31000:2018 • COSO ERM • ODS 2 y ODS 15</p>
+      </div>
+      <div class="controls">
+        <label class="muted">Filtro prioridad</label>
+        <select id="filterPriority">
+          <option value="all">Todas</option>
+          <option value="Alta">Alta</option>
+          <option value="Media">Media</option>
+          <option value="Baja">Baja</option>
+        </select>
+        <input id="searchBox" type="text" placeholder="Buscar riesgo, área..." />
+        <button id="exportBtn" title="Exportar tabla CSV" style="padding:8px 10px;border-radius:8px;background:#0b1220;border:1px solid rgba(255,255,255,0.03);color:#e6eef6"><i class="fa-regular fa-file-csv"></i> Exportar CSV</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <!-- KPIs -->
+      <div class="card half" style="padding:14px">
+        <h3>Indicadores clave (KPI)</h3>
+        <div class="kpi" style="justify-content:space-between">
+          <div>
+            <div class="value" id="kpiAvance">0%</div>
+            <div class="sub">Avance del programa de auditoría</div>
+          </div>
+          <div>
+            <div class="value" id="kpiIndice">0</div>
+            <div class="sub">Índice global de riesgo (promedio PxI)</div>
+          </div>
+          <div>
+            <div class="value" id="kpiCriticos">0%</div>
+            <div class="sub">% riesgos críticos (PxI ≥ 15)</div>
+          </div>
+          <div>
+            <div class="value" id="kpiCOSO">0/5</div>
+            <div class="sub">Promedio COSO (madurez)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="card side" style="padding:14px">
+        <h3>Mapa de calor: Probabilidad vs Impacto</h3>
+        <canvas id="heatmapChart" height="220"></canvas>
+        <div class="muted" style="margin-top:8px">Colores: 🔴 Crítico • 🟠 Alto • 🟡 Medio • 🟢 Bajo</div>
+      </div>
+
+      <!-- Areas criticas -->
+      <div class="card wide" style="padding:14px">
+        <h3>Áreas críticas priorizadas</h3>
+        <canvas id="areasChart" height="140"></canvas>
+      </div>
+
+      <!-- Tabla riesgos -->
+      <div class="card wide" style="padding:14px">
+        <h3>Matriz de Riesgos (detalles)</h3>
+        <div style="max-height:320px; overflow:auto; margin-top:8px">
+          <table id="risksTable">
+            <thead>
+              <tr><th>#</th><th>Área</th><th>Riesgo</th><th>Prob.</th><th>Impacto</th><th>PxI</th><th>Clasif.</th><th>Responsable</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div style="margin-top:8px" class="muted">Haz clic en una fila para ver la recomendación y plan.</div>
+      </div>
+
+      <!-- COSO cards -->
+      <div class="card side" style="padding:14px">
+        <h3>Evaluación COSO (5 componentes)</h3>
+        <canvas id="cosoChart" height="220"></canvas>
+        <div class="muted" style="margin-top:8px">Promedio por componente (1-5)</div>
+      </div>
+
+      <!-- Gantt -->
+      <div class="card full" style="padding:14px">
+        <h3>Cronograma (Gantt simplificado)</h3>
+        <div class="gantt" id="ganttContainer" style="margin-top:8px"></div>
+      </div>
+
+      <!-- Detalle seleccionado -->
+      <div class="card full" id="detailCard" style="display:none">
+        <h3>Detalle del riesgo seleccionado</h3>
+        <div id="riskDetail" style="font-size:14px;color:#dbeafe; margin-top:8px"></div>
+      </div>
+    </section>
+
+    <footer>
+      <div>Datos base: Matriz de Riesgos (15 items), Evaluación COSO, Programa de Auditoría. Fecha de actualización: <span id="today"></span></div>
+    </footer>
+  </div>
+
+  <script>
+    /* ===========================
+       Datos iniciales (tomados del plan)
+       =========================== */
+    const risks = [
+      {id:1, area:"Producción", risk:"Brote de enfermedad fúngica (Peronospora sparsa)", prob:4, impact:5, owner:"Jefe Agrícola", recommendation:"Implementar control integrado de plagas (IPM) y monitoreos semanales", days:3},
+      {id:2, area:"Recursos Humanos", risk:"Alta rotación de personal operativo", prob:3, impact:3, owner:"Gerente RRHH", recommendation:"Mejorar incentivos y retención; revisar horarios y contratos", days:3},
+      {id:3, area:"Finanzas", risk:"Atrasos en pagos de exportaciones", prob:3, impact:4, owner:"Gerente Financiero", recommendation:"Negociar líneas de crédito y asegurar cobros anticipados", days:2},
+      {id:4, area:"Logística", risk:"Fallas en transporte refrigerado", prob:2, impact:5, owner:"Jefe Logístico", recommendation:"Mantenimiento preventivo y controles térmicos en ruta", days:2},
+      {id:5, area:"Medio Ambiente", risk:"Contaminación del suelo por fertilizantes", prob:3, impact:5, owner:"Jefe Ambiental", recommendation:"Programa de manejo de suelos y dosificación controlada", days:2},
+      {id:6, area:"Calidad", risk:"Rechazo por estándares internacionales", prob:4, impact:4, owner:"Coordinador de Calidad", recommendation:"Reforzar trazabilidad y controles ISO 9001", days:3},
+      {id:7, area:"TIC", risk:"Pérdida de datos del sistema de producción", prob:3, impact:4, owner:"TI", recommendation:"Implementar backups automáticos y DRP", days:2},
+      {id:8, area:"Compras", risk:"Dependencia de proveedores únicos", prob:3, impact:3, owner:"Compras", recommendation:"Diversificar proveedores estratégicos", days:2},
+      {id:9, area:"Sostenibilidad", risk:"Inadecuado manejo de residuos agrícolas", prob:4, impact:4, owner:"Ambiental", recommendation:"Programa de reciclaje y compostaje", days:2},
+      {id:10, area:"Comercial", risk:"Disminución de demanda internacional", prob:2, impact:5, owner:"Gerente Comercial", recommendation:"Diversificar mercados y canales", days:2},
+      {id:11, area:"Seguridad Industrial", risk:"Accidentes laborales frecuentes", prob:4, impact:4, owner:"SST", recommendation:"Plan anual de seguridad y capacitaciones", days:3},
+      {id:12, area:"Control Interno", risk:"Falta de supervisión de inventarios", prob:3, impact:4, owner:"Auditor Interno", recommendation:"Implementar control digital y reconciliaciones", days:3},
+      {id:13, area:"Clima", risk:"Sequías prolongadas", prob:5, impact:5, owner:"Gerente Agrícola", recommendation:"Sistema de riego eficiente y planes de contingencia", days:5},
+      {id:14, area:"Finanzas", risk:"Incremento de tasas de interés", prob:3, impact:3, owner:"Gerente Financiero", recommendation:"Refinanciar deudas y revisar covenants", days:2},
+      {id:15, area:"Ética", risk:"Prácticas no éticas en contratación", prob:2, impact:4, owner:"Comité Ético", recommendation:"Implementar código de ética y auditorías periódicas", days:2}
+    ];
+
+    // COSO (promedios tomados de la hoja anterior)
+    const coso = [
+      {component:"Ambiente de control", value:3.2},
+      {component:"Evaluación de riesgos", value:4.0},
+      {component:"Actividades de control", value:3.0},
+      {component:"Información y comunicación", value:3.7},
+      {component:"Supervisión y monitoreo", value:3.0}
+    ];
+
+    // Programa Gantt (actividades cortas, simplificado en semanas)
+    const gantt = [
+      {label:"Planeación preliminar", startWeek:1, length:1, color:"#16a34a"},
+      {label:"Producción agrícola", startWeek:2, length:1, color:"#f97316"},
+      {label:"Sostenibilidad ambiental", startWeek:2, length:1, color:"#ef4444"},
+      {label:"Control interno y riesgos", startWeek:3, length:1, color:"#06b6d4"},
+      {label:"Finanzas y presupuesto", startWeek:3, length:1, color:"#7c3aed"},
+      {label:"Talento humano y SST", startWeek:4, length:1, color:"#a3e635"},
+      {label:"Redacción del informe", startWeek:5, length:1, color:"#60a5fa"},
+      {label:"Comunicación de resultados", startWeek:6, length:1, color:"#f472b6"}
+    ];
+
+    /* ====================
+       Cálculos y utilidades
+       ==================== */
+    function pxI(r){ return r.prob * r.impact; }
+    function classification(px){ if(px >= 15) return "Alta"; if(px >= 10) return "Media"; return "Baja"; }
+
+    // Compute KPIs
+    const totalRisks = risks.length;
+    const critCount = risks.filter(r => pxI(r) >= 15).length;
+    const avgPxI = (risks.reduce((s,r)=>s+pxI(r),0)/totalRisks).toFixed(1);
+    const programProgress = 60; // valor de ejemplo (tomado del plan)
+    const cosoAvg = (coso.reduce((s,c)=>s+c.value,0)/coso.length).toFixed(2);
+
+    // Fill KPI DOM
+    document.getElementById("kpiAvance").innerText = programProgress + "%";
+    document.getElementById("kpiIndice").innerText = avgPxI;
+    document.getElementById("kpiCriticos").innerText = Math.round((critCount/totalRisks)*100) + "%";
+    document.getElementById("kpiCOSO").innerText = cosoAvg + " / 5";
+    document.getElementById("today").innerText = new Date().toLocaleDateString();
+
+    /* ====================
+       Tabla de riesgos
+       ==================== */
+    const tbody = document.querySelector("#risksTable tbody");
+    function renderTable(filterPriority = "all", search = ""){
+      tbody.innerHTML = "";
+      const s = search.trim().toLowerCase();
+      risks.forEach(r=>{
+        const px = pxI(r);
+        const cls = classification(px);
+        if(filterPriority !== "all" && cls !== filterPriority) return;
+        if(s){
+          const text = (r.area+" "+r.risk+" "+r.owner).toLowerCase();
+          if(!text.includes(s)) return;
+        }
+        const tr = document.createElement("tr");
+        tr.classList.add("clickable");
+        tr.innerHTML = `<td>${r.id}</td>
+                        <td>${r.area}</td>
+                        <td>${r.risk}</td>
+                        <td>${r.prob}</td>
+                        <td>${r.impact}</td>
+                        <td>${px}</td>
+                        <td><span class="badge ${cls==='Alta'?'red':cls==='Media'?'orange':'green'}">${cls}</span></td>
+                        <td>${r.owner}</td>`;
+        tr.addEventListener("click", ()=> showDetail(r));
+        tbody.appendChild(tr);
+      });
+    }
+    renderTable();
+
+    function showDetail(r){
+      const detailCard = document.getElementById("detailCard");
+      const rd = document.getElementById("riskDetail");
+      const px = pxI(r);
+      rd.innerHTML = `<strong>Riesgo #${r.id} — ${r.area}</strong>
+                      <p style="margin:6px 0 0">${r.risk}</p>
+                      <p style="margin:6px 0 0"><strong>Probabilidad:</strong> ${r.prob} &nbsp; <strong>Impacto:</strong> ${r.impact} &nbsp; <strong>PxI:</strong> ${px} &nbsp; <span class="badge ${classification(px)==='Alta'?'red':classification(px)==='Media'?'orange':'green'}">${classification(px)}</span></p>
+                      <p style="margin:6px 0 0"><strong>Responsable:</strong> ${r.owner}</p>
+                      <p style="margin:8px 0 0"><strong>Recomendación:</strong> ${r.recommendation}</p>
+                      <p style="margin:8px 0 0" class="muted">Días estimados para acción: ${r.days}</p>`;
+      detailCard.style.display = "block";
+      detailCard.scrollIntoView({behavior:"smooth", block:"center"});
+    }
+
+    // Filters
+    document.getElementById("filterPriority").addEventListener("change", (e)=>{
+      renderTable(e.target.value, document.getElementById("searchBox").value);
+    });
+    document.getElementById("searchBox").addEventListener("input",(e)=>{
+      renderTable(document.getElementById("filterPriority").value, e.target.value);
+    });
+
+    // Export CSV
+    document.getElementById("exportBtn").addEventListener("click", ()=>{
+      const headers = ["id","area","risk","prob","impact","pxi","classification","owner","recommendation"];
+      const rows = risks.map(r => {
+        const px = pxI(r);
+        return [r.id, r.area, `"${r.risk.replace(/"/g,'""')}"`, r.prob, r.impact, px, classification(px), r.owner, `"${r.recommendation.replace(/"/g,'""')}"`];
+      });
+      let csv = headers.join(",") + "\n" + rows.map(r => r.join(",")).join("\n");
+      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = "matriz_riesgos_agroflor.csv"; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    /* ====================
+       Charts
+       ==================== */
+
+    // Heatmap: build 5x5 grid counts
+    const heatCounts = Array.from({length:5},()=>Array(5).fill(0));
+    risks.forEach(r=>{
+      const p = Math.max(1, Math.min(5, r.prob));
+      const i = Math.max(1, Math.min(5, r.impact));
+      heatCounts[5 - i][p - 1] += 1; // invert y for display (impact descending)
+    });
+    // Create bubble dataset from heatCounts
+    const heatData = [];
+    for(let row=0; row<5; row++){
+      for(let col=0; col<5; col++){
+        const count = heatCounts[row][col];
+        heatData.push({x: col+1, y: 5-row, r: 6 + count*4, v: count});
+      }
+    }
+
+    const heatCtx = document.getElementById("heatmapChart").getContext("2d");
+    const heatmapChart = new Chart(heatCtx, {
+      type: 'bubble',
+      data: {
+        datasets: [{
+          label: 'Riesgos (count)',
+          data: heatData,
+          backgroundColor: heatData.map(pt => {
+            // color by severity (probability*impact)
+            const severity = pt.x * pt.y;
+            if(severity >= 20) return 'rgba(239,68,68,0.85)';
+            if(severity >= 12) return 'rgba(249,115,22,0.85)';
+            if(severity >= 7) return 'rgba(250,204,21,0.85)';
+            return 'rgba(34,197,94,0.85)';
+          }),
+          borderColor: 'rgba(255,255,255,0.06)',
+        }]
+      },
+      options: {
+        responsive:true,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            callbacks:{
+              label: context => `P:${context.raw.x} • I:${context.raw.y} — ${context.raw.v} riesgo(s)`
+            }
+          }
+        },
+        scales:{
+          x:{ title:{display:true, text:'Probabilidad (1-5)'}, ticks:{stepSize:1, color:'#9aa5b1'} , min:1, max:5 },
+          y:{ title:{display:true, text:'Impacto (1-5)'}, ticks:{stepSize:1, color:'#9aa5b1'} , min:1, max:5 }
+        }
+      }
+    });
+
+    // Areas prioritized (aggregate average PxI per area)
+    const areaMap = {};
+    risks.forEach(r=>{
+      if(!areaMap[r.area]) areaMap[r.area] = {sum:0,count:0};
+      areaMap[r.area].sum += pxI(r);
+      areaMap[r.area].count += 1;
+    });
+    const areaLabels = Object.keys(areaMap);
+    const areaValues = areaLabels.map(a => (areaMap[a].sum / areaMap[a].count).toFixed(1));
+
+    const areasCtx = document.getElementById("areasChart").getContext("2d");
+    const areasChart = new Chart(areasCtx, {
+      type: 'bar',
+      data: {
+        labels: areaLabels,
+        datasets: [{
+          label:'Promedio PxI por Área',
+          data: areaValues,
+          borderRadius:6,
+          backgroundColor: areaValues.map(v => v>=15? 'rgba(239,68,68,0.9)': v>=10?'rgba(249,115,22,0.9)':'rgba(34,197,94,0.9)')
+        }]
+      },
+      options:{
+        indexAxis:'y',
+        plugins:{legend:{display:false}, tooltip:{callbacks:{label: ctx => `Promedio PxI: ${ctx.raw}`}} },
+        scales:{x:{display:true, ticks:{color:'#9aa5b1'}}, y:{ticks:{color:'#9aa5b1'}}}
+      }
+    });
+
+    // COSO Radar (or polar)
+    const cosoCtx = document.getElementById("cosoChart").getContext("2d");
+    const cosoChart = new Chart(cosoCtx, {
+      type: 'radar',
+      data: {
+        labels: coso.map(c=>c.component),
+        datasets: [{
+          label:'Madurez COSO',
+          data: coso.map(c=>c.value),
+          fill:true,
+          backgroundColor:'rgba(59,130,246,0.12)',
+          borderColor:'rgba(59,130,246,0.9)',
+          pointBackgroundColor:'rgba(59,130,246,0.9)'
+        }]
+      },
+      options:{
+        scales:{r:{min:0,max:5,ticks:{stepSize:1,color:'#9aa5b1'}}},
+        plugins:{legend:{display:false}},
+        elements:{line:{borderWidth:2}}
+      }
+    });
+
+    /* ====================
+       Render Gantt
+       ==================== */
+    function renderGantt(){
+      const container = document.getElementById("ganttContainer");
+      container.innerHTML = "";
+      const weeks = 6;
+      // header
+      const headerRow = document.createElement("div");
+      headerRow.className = "gantt-row";
+      headerRow.innerHTML = `<div class="label" style="font-weight:700">Semana</div>` + Array.from({length:weeks},(_,i)=>`<div style="width:80px;text-align:center;color:var(--muted);font-size:12px">W${i+1}</div>`).join("");
+      container.appendChild(headerRow);
+
+      // rows
+      gantt.forEach(task=>{
+        const row = document.createElement("div");
+        row.className = "gantt-row";
+        const label = document.createElement("div");
+        label.className = "label";
+        label.innerText = task.label;
+        row.appendChild(label);
+
+        for(let w=1; w<=weeks; w++){
+          const cell = document.createElement("div");
+          cell.style.width = "80px"; cell.style.height = "18px";
+          if(w >= task.startWeek && w < task.startWeek + task.length){
+            const b = document.createElement("div");
+            b.className = "bar";
+            b.style.width = "100%"; b.style.background = task.color;
+            b.title = `${task.label} (W${task.startWeek} - W${task.startWeek + task.length - 1})`;
+            cell.appendChild(b);
+          }
+          row.appendChild(cell);
+        }
+        container.appendChild(row);
+      });
+    }
+    renderGantt();
+
+    // initial render table done earlier
+    // allow clicking chart points to filter table (example: clicking bar area)
+    areasChart.canvas.addEventListener('click', (evt) => {
+      const points = areasChart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+      if(points.length){
+        const idx = points[0].index;
+        const area = areaLabels[idx];
+        document.getElementById("filterPriority").value = "all";
+        document.getElementById("searchBox").value = area;
+        renderTable("all", area);
+      }
+    });
+
+    // heatmap click: show matching risks
+    document.getElementById("heatmapChart").onclick = function(evt){
+      const points = heatmapChart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+      if(points.length){
+        const dsIndex = points[0].datasetIndex;
+        const idx = points[0].index;
+        const pt = heatData[idx];
+        // filter by prob and impact
+        const prob = pt.x, impact = pt.y;
+        const filtered = risks.filter(r => r.prob === prob && r.impact === impact);
+        if(filtered.length){
+          document.getElementById("searchBox").value = "";
+          document.getElementById("filterPriority").value = "all";
+          renderTable("all", "");
+          // scroll and highlight first match
+          showDetail(filtered[0]);
+        } else {
+          alert("No hay riesgos exactamente en esa celda.");
+        }
+      }
+    };
+
+    // initial highlight open first risk
+    // showDetail(risks[0]);
+
+  </script>
+</body>
+</html>
